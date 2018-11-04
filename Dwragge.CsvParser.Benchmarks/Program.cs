@@ -22,12 +22,16 @@ namespace Dwragge.CsvParser.Benchmarks
         public byte[] DataBytes;
 
         [Params(10000
-            //,100000
+           // ,100000
         )]
         public int NumRows;
 
-        public CsvMapping1<HalfNumbers> mapping = new HalfNumbersTestMapping1();
+        public CsvMapper<HalfNumbers> mapping = new HalfNumbersTestMapper();
         public Utf8CsvMapping1<HalfNumbers> utfMapping = new Utf8HalfNumbersMapping();
+
+        public CsvMapper<AllNumbersTestClass> allNumbersMapper = new AllNumbersTestMapper();
+        public Utf8CsvMapping1<AllNumbersTestClass> allNumbersUtfMapper = new AllNumbersTestMapperUtf8();
+
         public byte[] _numberBytes;
         public char[] _numberString = "12345678".ToCharArray();
 
@@ -39,14 +43,28 @@ namespace Dwragge.CsvParser.Benchmarks
             int numHeaders = 10;
             var builder = new StringBuilder();
 
+            //GenerateHeader(builder, numHeaders);
+            //GenerateHalfNumbersData(builder, random);
+
+            GenerateAllNumbersData(builder, random);
+
+            Data = builder.ToString();
+            DataBytes = Encoding.UTF8.GetBytes(Data);
+        }
+
+        private void GenerateHeader(StringBuilder builder, int numHeaders)
+        {
             for (int i = 0; i < numHeaders; i++)
             {
-                //builder.Append((char)(97 + i));
-                //if (i != numHeaders - 1) builder.Append(",");
+                builder.Append((char)(97 + i));
+                if (i != numHeaders - 1) builder.Append(",");
             }
+            builder.Append("\r\n");
+        }
 
-            //builder.Append("\r\n");
-
+        private void GenerateHalfNumbersData(StringBuilder builder, Random random)
+        {
+            int numHeaders = 10; // Fixed by class HalfNumbers
             for (int i = 0; i < NumRows; i++)
             {
                 for (int j = 0; j < numHeaders; j++)
@@ -56,7 +74,7 @@ namespace Dwragge.CsvParser.Benchmarks
                         int wordLength = random.Next(5, 30);
                         for (int k = 0; k < wordLength; k++)
                         {
-                            builder.Append((char) random.Next(48, 122));
+                            builder.Append((char)random.Next(48, 122));
                         }
                     }
                     else
@@ -64,108 +82,68 @@ namespace Dwragge.CsvParser.Benchmarks
                         int numLength = random.Next(3, 10);
                         for (int k = 0; k < numLength; k++)
                         {
-                            builder.Append((char) random.Next(48, 57));
+                            builder.Append((char)random.Next(48, 57));
                         }
                     }
-                    
+
                     if (j != numHeaders - 1) builder.Append(",");
                 }
                 builder.Append("\r\n");
             }
+        }
 
-            Data = builder.ToString();
-            DataBytes = Encoding.UTF8.GetBytes(Data);
+        private void GenerateAllNumbersData(StringBuilder builder, Random random)
+        {
+            int numHeaders = 10; // Fixed By Class
+            for (int i = 0; i < NumRows; i++)
+            {
+                for (int j = 0; j < numHeaders; j++)
+                {
+                    int numLength = random.Next(5, 20);
+                    if (j % 2 == 0)
+                    {
+                        int decimalPointLocation = random.Next(numLength - 1);
+                        for (int k = 0; k < decimalPointLocation; k++)
+                        {
+                            builder.Append((char)random.Next(48, 57));
+                        }
+
+                        builder.Append('.');
+
+                        for (int k = 0; k < numLength - decimalPointLocation; k++)
+                        {
+                            builder.Append((char) random.Next(48, 57));
+                        }
+                    }
+                    else
+                    {
+                        for (int k = 0; k < numLength; k++)
+                        {
+                            builder.Append((char)random.Next(48, 57));
+                        }
+                    }
+
+                    if (j != numHeaders - 1) builder.Append(",");
+                }
+                builder.Append("\r\n");
+            }
         }
 
         //[Benchmark]
-        public int CsvParserActionEachRecord()
-        {
-            var reader = CsvReader<HalfNumbers>.CreateFromString(Data, mapping);
-            int totalLength = 0;
-            while (reader.Read())
-            {
-                var record = reader.GetHalfNumbersRecord();
-                totalLength += record.B;
-                totalLength += record.D;
-                totalLength += record.F;
-                totalLength += record.H;
-                totalLength += record.J;
-            }
-
-            return totalLength;
-            //return reader.ReadToEnd();
-        }
-
-        //[Benchmark]
-        public int CsvParserActionEachRecord_DynamicIL()
-        {
-            var reader = CsvReader<HalfNumbers>.CreateFromString(Data, mapping);
-            int totalLength = 0;
-        
-            while (reader.Read())
-            {
-                var record = new HalfNumbers();
-                reader.GetCurrentRecordDynamic(record);
-                totalLength += record.B;
-                totalLength += record.D;
-                totalLength += record.F;
-                totalLength += record.H;
-                totalLength += record.J;
-            }
-
-            return totalLength;
-            //return reader.ReadToEnd();
-        }
-
-        //[Benchmark]
-        public int CsvParserSumNoMaterialize()
-        {
-            var reader = CsvReader<HalfNumbers>.CreateFromString(Data, mapping);
-            int totalLength = 0;
-            while (reader.Read())
-            {
-                totalLength += reader.GetIntColumn(1);
-                totalLength += reader.GetIntColumn(3);
-                totalLength += reader.GetIntColumn(5);
-                totalLength += reader.GetIntColumn(7);
-                totalLength += reader.GetIntColumn(9);
-            }
-
-            return totalLength;
-            //return reader.ReadToEnd();
-        }
-
-        //[Benchmark]
-        public List<HalfNumbers> CsvParserReadAll()
-        {
-            var reader = CsvReader<HalfNumbers>.CreateFromString(Data, mapping);
-            int totalLength = 0;
-            List<HalfNumbers> records = new List<HalfNumbers>();
-            while (reader.Read())
-            {
-                var record = reader.GetHalfNumbersRecord();
-                records.Add(record);
-            }
-
-            return records;
-        }
-
-        [Benchmark]
         public List<HalfNumbers> CsvReader_MapDynamicIL()
         {
             var reader = CsvReader<HalfNumbers>.CreateFromString(Data, mapping);
             var list = new List<HalfNumbers>();
             while (reader.Read())
             {
-                var record = new HalfNumbers();
-                reader.GetCurrentRecordDynamic(record);
+                var record = reader.GetRecord();
                 list.Add(record);
             }
 
             return list;
         }
 
-        [Benchmark]
+        //[Benchmark]
         public List<HalfNumbers> CsvReader_MapDynamicIL_Utf8()
         {
             var reader = Utf8CsvReader<HalfNumbers>.CreateFromBytes(DataBytes, utfMapping);
@@ -179,60 +157,54 @@ namespace Dwragge.CsvParser.Benchmarks
             return list;
         }
 
-        //[Benchmark]
-        public int CsvHelperActionEachRecord()
+        [Benchmark]
+        public List<AllNumbersTestClass> CsvReader_AllNumbers_MapDynamicIL()
         {
-            var reader = new CsvHelper.CsvReader(new StringReader(Data), new Configuration() {HeaderValidated = null});
-            int sum = 0;
+            var reader = CsvReader<AllNumbersTestClass>.CreateFromString(Data, allNumbersMapper);
+            var list = new List<AllNumbersTestClass>();
             while (reader.Read())
             {
-                sum += reader.GetField<int>(1);
-                sum += reader.GetField<int>(3);
-                sum += reader.GetField<int>(5);
-                sum += reader.GetField<int>(7);
-                sum += reader.GetField<int>(9);
+                var record = reader.GetRecord();
+                list.Add(record);
             }
 
-            return sum;
+            return list;
+        }
+
+        [Benchmark]
+        public List<AllNumbersTestClass> CsvReader_AllNumbers_MapDynamicIL_Utf8()
+        {
+            var reader = Utf8CsvReader<AllNumbersTestClass>.CreateFromBytes(DataBytes, allNumbersUtfMapper);
+            var list = new List<AllNumbersTestClass>();
+            while (reader.Read())
+            {
+                var record = reader.GetCurrentRecordDynamic();
+                list.Add(record);
+            }
+
+            return list;
         }
 
         //[Benchmark]
-        // have to read each field individually
         public List<HalfNumbers> CsvHelperReadAll()
         {
             var reader = new CsvHelper.CsvReader(new StringReader(Data), new Configuration() {HeaderValidated = null});
-            return reader.GetRecords<HalfNumbers>().ToList();
-        }
-
-        public class TestData
-        {
-            public string a { get; set; }
-            public string b { get; set; }
-            public string c { get; set; }
-            public string d { get; set; }
-            public string e { get; set; }
-            public string f { get; set; }
-            public string g { get; set; }
-            public string h { get; set; }
-            public string i { get; set; }
-            public string j { get; set; }
-        }
-
-        public class CsvTestMapping : CsvMapping<TestData>
-        {
-            public CsvTestMapping() : base()
+            while (reader.Read())
             {
-                MapProperty(0, x => x.a);
-                MapProperty(1, x => x.b);
-                MapProperty(2, x => x.c);
-                MapProperty(3, x => x.d);
-                MapProperty(4, x => x.e);
-                MapProperty(5, x => x.f);
-                MapProperty(6, x => x.g);
-                MapProperty(7, x => x.h);
-                MapProperty(8, x => x.i);
-                MapProperty(9, x => x.j);
+                var record = new HalfNumbers();
+                record.A = reader.GetField<string>(0);
+                record.C = reader.GetField<string>(2);
+                record.E = reader.GetField<string>(4);
+                record.G = reader.GetField<string>(6);
+                record.I = reader.GetField<string>(8);
+
+                record.B = reader.GetField<int>(1);
+                record.D = reader.GetField<int>(3);
+                record.F = reader.GetField<int>(5);
+                record.H = reader.GetField<int>(7);
+                record.J = reader.GetField<int>(9);
             }
+            return reader.GetRecords<HalfNumbers>().ToList();
         }
 
         public class HalfNumbersTestMapping : CsvMapping<HalfNumbers>
@@ -252,9 +224,9 @@ namespace Dwragge.CsvParser.Benchmarks
             }
         }
 
-        public class HalfNumbersTestMapping1 : CsvMapping1<HalfNumbers>
+        public class HalfNumbersTestMapper : CsvMapper<HalfNumbers>
         {
-            public HalfNumbersTestMapping1()
+            public HalfNumbersTestMapper()
             {
                 MapProperty(0, x => x.A);
                 MapProperty(1, x => x.B);
@@ -285,23 +257,6 @@ namespace Dwragge.CsvParser.Benchmarks
                 MapProperty(9, x => x.J);
             }
         }
-        
-
-        //[Benchmark]
-        public int TinyCsvParserActionPerRow()
-        {
-            var parser = new CsvParser<HalfNumbers>(new CsvParserOptions(true, ','), new HalfNumbersTestMapping());
-            int sum = 0;
-            parser.ReadFromString(new CsvReaderOptions(new[] {"\r\n"}), Data).ForEach(x =>
-            {
-                sum += x.Result.B;
-                sum += x.Result.D;
-                sum += x.Result.F;
-                sum += x.Result.H;
-                sum += x.Result.J;
-            });
-            return sum;
-        }
 
         //[Benchmark]
         public List<CsvMappingResult<HalfNumbers>> TinyCsvParserReadAll()
@@ -309,34 +264,12 @@ namespace Dwragge.CsvParser.Benchmarks
             var parser = new CsvParser<HalfNumbers>(new CsvParserOptions(true, ','), new HalfNumbersTestMapping());
             return parser.ReadFromString(new CsvReaderOptions(new[] {"\r\n"}), Data).ToList();
         }
-    }
-
-    [CoreJob]
-    public class ILGenBenchmarks
-    {
-        public class HalfNumbersTestMapping1 : CsvMapping1<HalfNumbers>
-        {
-            public HalfNumbersTestMapping1()
-            {
-                MapProperty(0, x => x.A);
-                MapProperty(1, x => x.B);
-                MapProperty(2, x => x.C);
-                MapProperty(3, x => x.D);
-                MapProperty(4, x => x.E);
-                MapProperty(5, x => x.F);
-                MapProperty(6, x => x.G);
-                MapProperty(7, x => x.H);
-                MapProperty(8, x => x.I);
-                MapProperty(9, x => x.J);
-            }
-        }
 
         [Benchmark]
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        public void CreateType()
+        public List<CsvMappingResult<AllNumbersTestClass>> TinyCsvParserReadAllNumbers()
         {
-            // MEMORY LEAK??
-            var mapping = new HalfNumbersTestMapping1();
+            var parser = new CsvParser<AllNumbersTestClass>(new CsvParserOptions(true, ','), new AllNumbersTestMapping());
+            return parser.ReadFromString(new CsvReaderOptions(new[] { "\r\n" }), Data).ToList();
         }
     }
 
@@ -344,26 +277,22 @@ namespace Dwragge.CsvParser.Benchmarks
     {
         static void Main(string[] args)
         {
-            #if DEBUG
-            
-                var runner = new CsvBenchmarks();
+#if DEBUG
+            var runner = new CsvBenchmarks();
             runner.NumRows = 100000;
             runner.Setup();
             Console.ReadLine();
-            List<HalfNumbers> list = new List<HalfNumbers>();
+            var list = new List<AllNumbersTestClass>();
             for (int i = 0; i < 1; i++)
             {
-                list.AddRange(runner.CsvReader_MapDynamicIL_Utf8());
+                list.AddRange(runner.CsvReader_AllNumbers_MapDynamicIL_Utf8());
                 Console.WriteLine(list.Count);
-            }
-            
-            
+            }   
 #else
 
-                var summary = BenchmarkRunner.Run<CsvBenchmarks>();
-                //var summary = BenchmarkRunner.Run<ILGenBenchmarks>();
-            
-        #endif
+            var summary = BenchmarkRunner.Run<CsvBenchmarks>();
+            //var summary = BenchmarkRunner.Run<ILGenBenchmarks>();    
+#endif
         }
     }
 }

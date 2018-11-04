@@ -16,7 +16,7 @@ namespace Dwragge.CsvParser
 
             var assemblyBuilder = factory.GetAssemblyBuilder("Mappers");
             var moduleBuilder = factory.GetModuleBuilder(assemblyBuilder);
-            var typeBuilder = factory.GetType<TEntity>(moduleBuilder, typeof(TEntity).Name);
+            var typeBuilder = factory.GetType(moduleBuilder, typeof(TEntity).Name, typeof(IPropertyMapper<>).MakeGenericType(typeof(TEntity)));
             var method = factory.GetMethod(typeBuilder, "Map", typeof(TEntity), typeof(ReadOnlySpan<>).MakeGenericType(typeof(char)));
 
             var ilGen = method.GetILGenerator();
@@ -27,7 +27,6 @@ namespace Dwragge.CsvParser
             typeBuilder.DefineMethodOverride(method, typeof(IPropertyMapper<>).MakeGenericType(typeof(TEntity)).GetMethod("Map"));
 
             var type = typeBuilder.CreateType();
-            //var casted = (IPropertyMapper<TEntity>)Activator.CreateInstance(type);
             var constructor = type.GetConstructor(Type.EmptyTypes);
             var casted = (IPropertyMapper<TEntity>)constructor.Invoke(null);
             return casted;
@@ -40,7 +39,7 @@ namespace Dwragge.CsvParser
 
             var assemblyBuilder = factory.GetAssemblyBuilder("Mappers");
             var moduleBuilder = factory.GetModuleBuilder(assemblyBuilder);
-            var typeBuilder = factory.GetUtf8Type<TEntity>(moduleBuilder, typeof(TEntity).Name);
+            var typeBuilder = factory.GetType(moduleBuilder, typeof(TEntity).Name, typeof(IUtf8PropertyMapper<>).MakeGenericType(typeof(TEntity)));
             var method = factory.GetMethod(typeBuilder, "Map", typeof(TEntity), typeof(ReadOnlySpan<>).MakeGenericType(typeof(byte)));
 
             var ilGen = method.GetILGenerator();
@@ -51,7 +50,6 @@ namespace Dwragge.CsvParser
             typeBuilder.DefineMethodOverride(method, typeof(IUtf8PropertyMapper<>).MakeGenericType(typeof(TEntity)).GetMethod("Map"));
 
             var type = typeBuilder.CreateType();
-            //var casted = (IPropertyMapper<TEntity>)Activator.CreateInstance(type);
             var constructor = type.GetConstructor(Type.EmptyTypes);
             var casted = (IUtf8PropertyMapper<TEntity>)constructor.Invoke(null);
             return casted;
@@ -70,32 +68,19 @@ namespace Dwragge.CsvParser
             return builder;
         }
 
-        private TypeBuilder GetType<TEntity>(ModuleBuilder moduleBuilder, string className)
+        private TypeBuilder GetType(ModuleBuilder moduleBuilder, string className, params Type[] interfaceTypes)
         {
             var typeName = $"PropertyMapper_{className}_{Guid.NewGuid()}";
             var typeBuilder = moduleBuilder.DefineType(typeName,
                 TypeAttributes.BeforeFieldInit | TypeAttributes.AutoClass | TypeAttributes.Sealed |
                 TypeAttributes.AnsiClass | TypeAttributes.Public,
                 typeof(object)
-                //,new [] {typeof(IPropertyMapper<TEntity>)}
                 );
-            var interfaceType = typeof(IPropertyMapper<>).MakeGenericType(typeof(TEntity));
-            typeBuilder.AddInterfaceImplementation(interfaceType);
 
-            return typeBuilder;
-        }
-
-        private TypeBuilder GetUtf8Type<TEntity>(ModuleBuilder moduleBuilder, string className)
-        {
-            var typeName = $"PropertyMapper_{className}_{Guid.NewGuid()}";
-            var typeBuilder = moduleBuilder.DefineType(typeName,
-                TypeAttributes.BeforeFieldInit | TypeAttributes.AutoClass | TypeAttributes.Sealed |
-                TypeAttributes.AnsiClass | TypeAttributes.Public,
-                typeof(object)
-                //,new [] {typeof(IPropertyMapper<TEntity>)}
-            );
-            var interfaceType = typeof(IUtf8PropertyMapper<>).MakeGenericType(typeof(TEntity));
-            typeBuilder.AddInterfaceImplementation(interfaceType);
+            foreach (var interfaceType in interfaceTypes)
+            {
+                typeBuilder.AddInterfaceImplementation(interfaceType);
+            }
 
             return typeBuilder;
         }
@@ -117,16 +102,21 @@ namespace Dwragge.CsvParser
                 gen.Emit(OpCodes.Ldarg_2);
                 var constructor = typeof(string).GetConstructor(new []{typeof(ReadOnlySpan<>).MakeGenericType(typeof(char))});
                 gen.Emit(OpCodes.Newobj, constructor);
-                gen.Emit(OpCodes.Stloc_0);
             }
-            
             else if (propertyType == typeof(int))
             {
                 gen.DeclareLocal(typeof(int));
                 gen.Emit(OpCodes.Ldarg_2);
                 gen.EmitCall(OpCodes.Call, typeof(ParseUtils).GetMethod("ParseInt", new [] {typeof(ReadOnlySpan<>).MakeGenericType(typeof(char))}), null);
-                gen.Emit(OpCodes.Stloc_0);
             }
+            else if (propertyType == typeof(float))
+            {
+                gen.DeclareLocal(typeof(float));
+                gen.Emit(OpCodes.Ldarg_2);
+                gen.EmitCall(OpCodes.Call, typeof(ParseUtils).GetMethod("ParseFloat", new[] { typeof(ReadOnlySpan<>).MakeGenericType(typeof(char)) }), null);
+            }
+
+            gen.Emit(OpCodes.Stloc_0);
         }
 
         private void GenerateParseCallUtf8(ILGenerator gen, Type propertyType)
@@ -136,7 +126,6 @@ namespace Dwragge.CsvParser
                 gen.DeclareLocal(typeof(string));
                 gen.Emit(OpCodes.Ldarg_2);
                 gen.Emit(OpCodes.Call, typeof(ParseUtils).GetMethod("SpanToString"));
-                gen.Emit(OpCodes.Stloc_0);
             }
             
             else if (propertyType == typeof(int))
@@ -144,8 +133,15 @@ namespace Dwragge.CsvParser
                 gen.DeclareLocal(typeof(int));
                 gen.Emit(OpCodes.Ldarg_2);
                 gen.EmitCall(OpCodes.Call, typeof(ParseUtils).GetMethod("ParseInt", new [] {typeof(ReadOnlySpan<>).MakeGenericType(typeof(byte))}), null);
-                gen.Emit(OpCodes.Stloc_0);
             }
+            else if (propertyType == typeof(float))
+            {
+                gen.DeclareLocal(typeof(float));
+                gen.Emit(OpCodes.Ldarg_2);
+                gen.EmitCall(OpCodes.Call, typeof(ParseUtils).GetMethod("ParseFloat", new[] { typeof(ReadOnlySpan<>).MakeGenericType(typeof(byte)) }), null);
+            }
+
+            gen.Emit(OpCodes.Stloc_0);
         }
 
         private void GenerateSetProperty(ILGenerator gen, PropertyInfo property)

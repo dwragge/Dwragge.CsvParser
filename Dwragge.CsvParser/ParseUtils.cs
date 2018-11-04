@@ -2,6 +2,9 @@
 using System.Buffers.Text;
 using System.Text;
 
+// The code that calls this is dynamically genereated
+// ReSharper disable UnusedMember.Global
+
 namespace Dwragge.CsvParser
 {
     public static class ParseUtils
@@ -40,6 +43,16 @@ namespace Dwragge.CsvParser
             int numBytes = Encoding.UTF8.GetBytes(str, bytes);
             if (numBytes > str.Length) throw new InvalidOperationException();
             if (!Utf8Parser.TryParse(bytes, out float value, out int _))
+            {
+                throw new InvalidOperationException();
+            }
+
+            return value;
+        }
+
+        public static float ParseFloat(ReadOnlySpan<byte> str)
+        {
+            if (!Utf8Parser.TryParse(str, out float value, out int _))
             {
                 throw new InvalidOperationException();
             }

@@ -6,7 +6,7 @@ using System.Text;
 
 namespace Dwragge.CsvParser
 {
-    public class CsvMapping1<TEntity> where TEntity : class, new()
+    public class CsvMapper<TEntity> where TEntity : class, new()
     {
         private class CsvPropertyMapping
         {
@@ -20,14 +20,13 @@ namespace Dwragge.CsvParser
             public int Index { get; }
         }
 
-        private List<CsvPropertyMapping> _mappings = new List<CsvPropertyMapping>();
-        private int _numCols = 0;
+        private readonly List<CsvPropertyMapping> _mappings = new List<CsvPropertyMapping>();
+        private int _numCols;
+
         protected void MapProperty<TProperty>(int columnIndex,
             Expression<Func<TEntity, TProperty>> mappingExpression)
         {
-            // get propertyname
             var propertyName = GetPropertyNameFromExpression(mappingExpression);
-            // create ipropertymapper
             var mapper = PropertyMapperFactory.CreateMapper<TEntity>(propertyName);
             var mapping = new CsvPropertyMapping(columnIndex, mapper);
             _mappings.Insert(columnIndex, mapping);

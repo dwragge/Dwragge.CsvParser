@@ -7,7 +7,7 @@ namespace Dwragge.CsvParser.Tests
 {
     public class CsvMappingTests
     {
-        public class TestMapper : CsvMapping1<HalfNumbers>
+        public class TestMapper : CsvMapper<HalfNumbers>
         {
             public TestMapper()
             {

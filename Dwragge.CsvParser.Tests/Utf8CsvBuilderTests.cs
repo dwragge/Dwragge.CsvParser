@@ -24,6 +24,34 @@ namespace Dwragge.CsvParser.Tests
             }
         }
 
+
+        public class FloatClass
+        {
+            public float A { get; set; }
+        }
+
+        public class FloatClassMapper : Utf8CsvMapping1<FloatClass>
+        {
+            public FloatClassMapper()
+            {
+                MapProperty(0, x => x.A);
+            }
+        }
+
+        [Fact]
+        public void Utf8CsvReader_CanReadFloat()
+        {
+            var csvData = "123.4567";
+            var reader = Utf8CsvReader<FloatClass>.CreateFromString(csvData, new FloatClassMapper());
+            FloatClass obj = default;
+            while (reader.Read())
+            {
+                obj = reader.GetCurrentRecordDynamic();
+            }
+
+            Assert.Equal(123.4567f, obj.A);
+        }
+
         [Fact]
         public void Utf8CsvReader_CanRead()
         {
