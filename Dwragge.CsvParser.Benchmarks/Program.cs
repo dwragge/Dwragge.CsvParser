@@ -31,22 +31,19 @@ namespace Dwragge.CsvParser.Benchmarks
 
         public CsvMapper<AllNumbersTestClass> allNumbersMapper = new AllNumbersTestMapper();
         public Utf8CsvMapping1<AllNumbersTestClass> allNumbersUtfMapper = new AllNumbersTestMapperUtf8();
-
-        public byte[] _numberBytes;
-        public char[] _numberString = "12345678".ToCharArray();
+        
 
         [GlobalSetup]
         public void Setup()
         {
-            _numberBytes  = Encoding.UTF8.GetBytes("12345678");
             var random = new Random();
             int numHeaders = 10;
             var builder = new StringBuilder();
 
             //GenerateHeader(builder, numHeaders);
-            //GenerateHalfNumbersData(builder, random);
+            GenerateHalfNumbersData(builder, random);
 
-            GenerateAllNumbersData(builder, random);
+            //GenerateAllNumbersData(builder, random);
 
             Data = builder.ToString();
             DataBytes = Encoding.UTF8.GetBytes(Data);
@@ -64,6 +61,7 @@ namespace Dwragge.CsvParser.Benchmarks
 
         private void GenerateHalfNumbersData(StringBuilder builder, Random random)
         {
+   
             int numHeaders = 10; // Fixed by class HalfNumbers
             for (int i = 0; i < NumRows; i++)
             {
@@ -146,18 +144,15 @@ namespace Dwragge.CsvParser.Benchmarks
         //[Benchmark]
         public List<HalfNumbers> CsvReader_MapDynamicIL_Utf8()
         {
-            var reader = Utf8CsvReader<HalfNumbers>.CreateFromBytes(DataBytes, utfMapping);
-            var list = new List<HalfNumbers>();
-            while (reader.Read())
+            var reader = new FileCsvReader<HalfNumbers>(utfMapping);
+            using (var stream = new MemoryStream(DataBytes))
             {
-                var record = reader.GetCurrentRecordDynamic();
-                list.Add(record);
+                var list = reader.ReadAll(stream);
+                return list;
             }
-
-            return list;
         }
 
-        [Benchmark]
+        //[Benchmark]
         public List<AllNumbersTestClass> CsvReader_AllNumbers_MapDynamicIL()
         {
             var reader = CsvReader<AllNumbersTestClass>.CreateFromString(Data, allNumbersMapper);
@@ -171,7 +166,7 @@ namespace Dwragge.CsvParser.Benchmarks
             return list;
         }
 
-        [Benchmark]
+        //[Benchmark]
         public List<AllNumbersTestClass> CsvReader_AllNumbers_MapDynamicIL_Utf8()
         {
             var reader = Utf8CsvReader<AllNumbersTestClass>.CreateFromBytes(DataBytes, allNumbersUtfMapper);
@@ -265,12 +260,41 @@ namespace Dwragge.CsvParser.Benchmarks
             return parser.ReadFromString(new CsvReaderOptions(new[] {"\r\n"}), Data).ToList();
         }
 
-        [Benchmark]
+        //[Benchmark]
         public List<CsvMappingResult<AllNumbersTestClass>> TinyCsvParserReadAllNumbers()
         {
             var parser = new CsvParser<AllNumbersTestClass>(new CsvParserOptions(true, ','), new AllNumbersTestMapping());
             return parser.ReadFromString(new CsvReaderOptions(new[] { "\r\n" }), Data).ToList();
         }
+
+        [Benchmark]
+        public List<HalfNumbers> CsvParser_ParseFile()
+        {
+            using (var stream = File.OpenRead(@"C:\Users\dylan\Desktop\csvtest_100000.csv"))
+            {
+                var parser = new FileCsvReader<HalfNumbers>(utfMapping);
+                var list = parser.ReadAll(stream);
+                return list;
+            }
+            
+        }
+
+        [Benchmark]
+        public List<CsvMappingResult<HalfNumbers>> TinyCsvParser_ReadFromFile()
+        {
+            var parser = new CsvParser<HalfNumbers>(new CsvParserOptions(true, ','), new HalfNumbersTestMapping());
+            return parser.ReadFromFile(@"C:\Users\dylan\Desktop\csvtest_100000.csv", Encoding.UTF8).ToList();
+        }
+
+        [Benchmark]
+        public List<HalfNumbers> CsvHelper_ReadFromFile()
+        {
+            var reader = new CsvHelper.CsvReader(File.OpenText(@"C:\Users\dylan\Desktop\csvtest_headers_100000.csv"));
+            var records = reader.GetRecords<HalfNumbers>().ToList();
+            return records;
+        }
+
+        
     }
 
     public class Program
@@ -281,13 +305,9 @@ namespace Dwragge.CsvParser.Benchmarks
             var runner = new CsvBenchmarks();
             runner.NumRows = 100000;
             runner.Setup();
+            var list = runner.CsvParser_ParseFile();
+            Console.WriteLine(list.Count);
             Console.ReadLine();
-            var list = new List<AllNumbersTestClass>();
-            for (int i = 0; i < 1; i++)
-            {
-                list.AddRange(runner.CsvReader_AllNumbers_MapDynamicIL_Utf8());
-                Console.WriteLine(list.Count);
-            }   
 #else
 
             var summary = BenchmarkRunner.Run<CsvBenchmarks>();

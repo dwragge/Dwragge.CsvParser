@@ -87,7 +87,7 @@ namespace Dwragge.CsvParser
         public T GetCurrentRecordDynamic()
         {
             var obj = TCreatorFunc();
-            _mapping.Map(obj, _data.Span, ref _currentValueIndices);
+            _mapping.Map(obj, _data.Span, _currentValueIndices);
             return obj;
         }
 
