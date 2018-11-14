@@ -3,7 +3,7 @@
 This is a small toy program I wrote to test out what the new Memory<T>, Span<T> and Pipelines APIs could do in .NET Core 2.1
 It also uses Reflection.Emit to have the fastest type mapping possible, which was fun to implement.
 
-For reading a file from disk into memory, and mapping it to a C# object: the benchmarks are below
+For reading a file from disk into memory, and mapping it to a C# object: the benchmarks are below. The file has 100k lines, randomly generated using the same code in Benchmarks, just output to a file.
 
 ``` ini
 
